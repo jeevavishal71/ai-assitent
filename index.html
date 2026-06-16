@@ -349,8 +349,8 @@
 </div>
 
 <script>
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
-const apiKey = 'AQ.Ab8RN6LidCL15RmG1dnl07AOWdl0AydTRcHJ_NdW912KtGQxSw'; // உங்கள் Gemini API Key இங்கே paste பண்ணுங்க
+const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+const apiKey = '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'; // உங்கள் Groq API Key இங்கே paste பண்ணுங்க (gsk_...)
 let recognition = null;
 let isListening = false;
 let autoSpeak = true;
@@ -401,7 +401,7 @@ function detectLang(text) {
   return tamilChars > 2 ? 'ta' : 'en';
 }
 
-async function askGemini(userText) {
+async function askGroq(userText) {
   setStatus('Thinking...');
 
   const lang = detectLang(userText);
@@ -411,17 +411,25 @@ async function askGemini(userText) {
     ? 'நீங்கள் ஒரு helpful AI assistant. எப்போதும் Tamil-ல் பதில் சொல்லுங்கள். சுருக்கமாகவும் தெளிவாகவும் பேசுங்கள்.'
     : 'You are a helpful AI assistant. Always reply in English. Be concise and clear.';
 
-  chatHistory.push({ role: 'user', parts: [{ text: userText }] });
+  chatHistory.push({ role: 'user', content: userText });
 
   const body = {
-    system_instruction: { parts: [{ text: systemPrompt }] },
-    contents: chatHistory
+    model: 'llama-3.3-70b-versatile',
+    messages: [
+      { role: 'system', content: systemPrompt },
+      ...chatHistory
+    ],
+    max_tokens: 1024,
+    temperature: 0.7
   };
 
   try {
-    const res = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
+    const res = await fetch(GROQ_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
       body: JSON.stringify(body)
     });
 
@@ -429,8 +437,8 @@ async function askGemini(userText) {
 
     if (data.error) throw new Error(data.error.message);
 
-    const reply = data.candidates[0].content.parts[0].text;
-    chatHistory.push({ role: 'model', parts: [{ text: reply }] });
+    const reply = data.choices[0].message.content;
+    chatHistory.push({ role: 'assistant', content: reply });
 
     addMessage(reply, 'ai', lang);
     if (autoSpeak) speakText(reply, lang);
@@ -463,7 +471,7 @@ function sendText() {
   addMessage(text, 'user');
   input.value = '';
   input.style.height = 'auto';
-  askGemini(text);
+  askGroq(text);
 }
 
 function toggleMic() {
@@ -509,7 +517,7 @@ function startMic() {
       addMessage(text, 'user');
       document.getElementById('textInput').value = '';
       document.getElementById('textInput').style.height = 'auto';
-      askGemini(text);
+      askGroq(text);
     }
   };
 
